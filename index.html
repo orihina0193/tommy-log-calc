@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>丸太材積計算</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0072b2">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #f4f1ea; --card: #ffffff; --text: #2b2a26; --sub: #6b675c;
+    --accent: #0072b2; --accent-text: #ffffff; --accent-soft: #d3e6f3;
+    --danger: #b34700; --line: #cfc9b8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1d1a; --card: #272822; --text: #ecebe4; --sub: #9a9789;
+      --accent: #56b4e9; --accent-text: #0b1a24; --accent-soft: #1f3a52;
+      --danger: #f0a030; --line: #4a4b42;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px 16px 40px; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    max-width: 560px; margin-inline: auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body.sheetOpen { padding-bottom: 240px; }
+  h1 { font-size: 20px; margin: 4px 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+  label { display: block; font-size: 13px; color: var(--sub); margin-bottom: 4px; }
+  input, select {
+    width: 100%; font-size: 22px; padding: 12px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  }
+  select { font-size: 16px; padding: 10px; }
+  button { font-family: inherit; color: var(--text); cursor: pointer; }
+
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+  .tabs button {
+    font-size: 17px; padding: 12px 0; border-radius: 10px; font-weight: 600;
+    border: 1px solid var(--line); background: var(--bg);
+  }
+  .tabs button.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+
+  #customWrap { margin-bottom: 12px; display: none; }
+
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .grid button {
+    min-height: 62px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg);
+    font-size: 22px; font-weight: 600; line-height: 1.15; padding: 6px 0;
+  }
+  .grid button small { display: block; font-size: 13px; font-weight: 400; color: var(--sub); min-height: 15px; }
+  .grid button.has { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .grid button.has small { color: var(--accent-text); font-weight: 700; }
+  .grid button.sel { outline: 4px dashed var(--danger); outline-offset: 1px; }
+  .grid button:active { transform: scale(0.96); }
+  .unit { font-size: 12px; color: var(--sub); margin: 8px 0 0; }
+
+  .warn { color: var(--danger); font-size: 14px; min-height: 20px; margin-top: 8px; }
+
+  .total { text-align: center; }
+  .total .big { font-size: 40px; font-weight: 700; color: var(--accent); }
+  .total .s { color: var(--sub); font-size: 14px; }
+
+  .grp { margin-bottom: 14px; }
+  .grp:last-child { margin-bottom: 0; }
+  .grp h2 { font-size: 16px; margin: 0 0 6px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--accent); padding-bottom: 4px; }
+  .grp h2 span { font-size: 13px; font-weight: 400; color: var(--sub); }
+  .line { display: flex; justify-content: space-between; padding: 7px 2px; border-bottom: 1px solid var(--line); font-size: 19px; }
+  .line .v { color: var(--sub); font-size: 14px; align-self: center; }
+  .empty { text-align: center; color: var(--sub); padding: 14px 0; }
+
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .actions button { font-size: 15px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: transparent; }
+  .actions .danger { color: var(--danger); }
+  .note { font-size: 12px; color: var(--sub); line-height: 1.6; }
+
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    background: var(--card); border-top: 2px solid var(--accent);
+    box-shadow: 0 -6px 20px rgba(0,0,0,.18);
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+    max-width: 560px; margin-inline: auto;
+    border-radius: 16px 16px 0 0;
+  }
+  .sheet[hidden] { display: none; }
+  .sheetHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .sheetHead b { font-size: 18px; }
+  .sheetHead button { font-size: 20px; border: none; background: transparent; padding: 4px 10px; color: var(--sub); }
+  .sheetRow { display: flex; gap: 8px; margin-bottom: 8px; }
+  .sheetRow:last-child { margin-bottom: 0; }
+  .sheetRow input { font-size: 30px; text-align: center; font-weight: 700; }
+  .sheetRow .step { width: 64px; flex: none; font-size: 28px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); }
+  .sheetRow .ok { flex: 1; font-size: 18px; font-weight: 700; padding: 14px 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); }
+  .sheetRow .ok.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+</style>
+</head>
+<body>
+<h1>🪵 丸太材積計算</h1>
+
+<div class="card">
+  <div class="tabs" id="tabs"></div>
+
+  <div id="customWrap">
+    <label for="custom">長さ (m) を入れてから、径を選ぶ</label>
+    <input id="custom" type="text" inputmode="decimal" autocomplete="off" placeholder="例 3.6">
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <p class="unit">径 (末口径 cm) をタップすると、本数の入力欄が出ます。</p>
+  <div class="warn" id="warn"></div>
+</div>
+
+<div class="card total">
+  <div class="s">合計材積</div>
+  <div class="big"><span id="total">0.000</span> ㎥</div>
+  <div class="s"><span id="count">0</span> 本</div>
+</div>
+
+<div class="card">
+  <div id="summary"></div>
+  <div class="empty" id="empty">まだ登録がありません</div>
+  <div class="actions">
+    <button id="copy">結果をコピー</button>
+    <button id="clearLen" class="danger">この長さを消す</button>
+    <button id="clearAll" class="danger">全部消す</button>
+  </div>
+</div>
+
+<div class="card">
+  <p class="note">
+    1本ごとに小数第3位で切り捨て（例 0.1296 → 0.129）してから、本数をかけて合計します。<br><br>
+    計算式（末口二乗法）<br>
+    ・長さ 6m 未満：末口径² × 長さ ÷ 10000<br>
+    ・長さ 6m 以上：(末口径 + (長さの整数部分 − 4) ÷ 2)² × 長さ ÷ 10000<br>
+    ※ 径は cm、長さは m、結果は ㎥。取引の基準と合っているか、伝票などで確認してください。
+  </p>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="sheetHead"><b id="sheetTitle"></b><button id="sheetClose" aria-label="閉じる">✕</button></div>
+  <div class="sheetRow">
+    <button class="step" id="dec">−</button>
+    <input id="cnt" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="本数">
+    <button class="step" id="inc">＋</button>
+  </div>
+  <div class="sheetRow">
+    <button class="ok primary" id="ok">確定</button>
+    <button class="ok" id="okNext">確定して次の径 →</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = "log-volume-calc-v2";
+  var DIAS = [];
+  for (var d = 18; d <= 60; d += 2) DIAS.push(d);
+  var TABS = [["2", "2m"], ["2.2", "2.2m"], ["4", "4m"], ["other", "その他"]];
+  var S = { ver: 2, counts: {}, tab: "4", custom: "" };
+  var sel = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(KEY) || "{}");
+      if (s.counts && typeof s.counts === "object") S.counts = s.counts;
+      if (s.tab) S.tab = s.tab;
+      if (typeof s.custom === "string") S.custom = s.custom;
+    } catch (e) {}
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) {}
+  }
+
+  function num(v) {
+    var n = parseFloat(String(v).replace(/[０-９．]/g, function (c) {
+      return c === "．" ? "." : String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+    }));
+    return isFinite(n) ? n : NaN;
+  }
+
+  function curKey() {
+    if (S.tab !== "other") return S.tab;
+    var n = num(S.custom);
+    if (!(n > 0) || n > 30) return null;
+    return String(n);
+  }
+
+  function volume(d, l) {
+    var base = l < 6 ? d : d + (Math.floor(l) - 4) / 2;
+    var v = base * base * l / 10000;
+    return Math.floor(v * 1000 + 1e-9) / 1000;
+  }
+  function fmt(n) { return n.toFixed(3); }
+
+  function getCount(key, d) {
+    return (key && S.counts[key] && S.counts[key][d]) || 0;
+  }
+  function setCount(key, d, n) {
+    var grp = S.counts[key] || (S.counts[key] = {});
+    if (n > 0) grp[d] = n; else delete grp[d];
+    if (!Object.keys(grp).length) delete S.counts[key];
+  }
+
+  function renderTabs() {
+    var t = $("tabs");
+    t.innerHTML = "";
+    TABS.forEach(function (x) {
+      var b = document.createElement("button");
+      b.textContent = x[1];
+      if (S.tab === x[0]) b.className = "on";
+      b.onclick = function () {
+        S.tab = x[0]; $("warn").textContent = "";
+        closeSheet();
+        save(); renderTabs(); renderGrid();
+      };
+      t.appendChild(b);
+    });
+    $("customWrap").style.display = S.tab === "other" ? "block" : "none";
+    $("custom").value = S.custom;
+  }
+
+  function renderGrid() {
+    var g = $("grid");
+    g.innerHTML = "";
+    var key = curKey();
+    DIAS.forEach(function (d) {
+      var b = document.createElement("button");
+      var n = getCount(key, d);
+      b.innerHTML = d + "<small>" + (n ? n + "本" : "") + "</small>";
+      var cls = [];
+      if (n) cls.push("has");
+      if (sel === d) cls.push("sel");
+      b.className = cls.join(" ");
+      b.setAttribute("data-d", d);
+      b.onclick = function () { openSheet(d); };
+      g.appendChild(b);
+    });
+  }
+
+  function openSheet(d) {
+    var key = curKey();
+    var w = $("warn");
+    if (!key) { w.textContent = "先に長さ(m)を入れてください（30m以下）"; return; }
+    w.textContent = "";
+    sel = d;
+    var n = getCount(key, d);
+    $("sheetTitle").textContent = d + "cm（" + key + "m）の本数";
+    $("cnt").value = n ? String(n) : "";
+    $("sheet").hidden = false;
+    document.body.classList.add("sheetOpen");
+    renderGrid();
+    var btn = $("grid").querySelector('[data-d="' + d + '"]');
+    if (btn && btn.scrollIntoView) { try { btn.scrollIntoView({ block: "center" }); } catch (e) {} }
+    setTimeout(function () { $("cnt").focus(); $("cnt").select(); }, 30);
+  }
+
+  function closeSheet() {
+    sel = null;
+    $("sheet").hidden = true;
+    document.body.classList.remove("sheetOpen");
+    renderGrid();
+  }
+
+  function readCnt() {
+    var n = Math.floor(num($("cnt").value));
+    if (!isFinite(n) || n < 0) n = 0;
+    if (n > 9999) n = 9999;
+    return n;
+  }
+
+  function commit() {
+    var key = curKey();
+    if (sel === null || !key) return false;
+    setCount(key, sel, readCnt());
+    save(); renderSummary();
+    return true;
+  }
+
+  function step(delta) {
+    var n = Math.max(0, Math.min(9999, readCnt() + delta));
+    $("cnt").value = String(n);
+  }
+
+  function renderSummary() {
+    var gs = groups();
+    var box = $("summary");
+    box.innerHTML = "";
+    var tn = 0, tv = 0;
+    gs.forEach(function (g) {
+      tn += g.n; tv += g.v;
+      var div = document.createElement("div");
+      div.className = "grp";
+      var h = document.createElement("h2");
+      h.innerHTML = g.key + "m<span>" + g.n + "本 ／ " + fmt(g.v) + "㎥</span>";
+      div.appendChild(h);
+      g.rows.forEach(function (r) {
+        var line = document.createElement("div");
+        line.className = "line";
+        line.innerHTML = "<span>" + r.d + "cm　" + r.n + "本</span><span class='v'>" + fmt(r.v) + "㎥</span>";
+        div.appendChild(line);
+      });
+      box.appendChild(div);
+    });
+    $("total").textContent = fmt(tv);
+    $("count").textContent = tn;
+    $("empty").style.display = gs.length ? "none" : "block";
+  }
+
+  function groups() {
+    return Object.keys(S.counts).sort(function (a, b) { return parseFloat(a) - parseFloat(b); })
+      .map(function (k) {
+        var l = parseFloat(k);
+        var rows = Object.keys(S.counts[k]).map(Number).sort(function (a, b) { return a - b; })
+          .map(function (d) {
+            var n = S.counts[k][d];
+            return { d: d, n: n, v: volume(d, l) * n };
+          });
+        return {
+          key: k, l: l, rows: rows,
+          n: rows.reduce(function (a, r) { return a + r.n; }, 0),
+          v: rows.reduce(function (a, r) { return a + r.v; }, 0)
+        };
+      });
+  }
+
+  $("ok").onclick = function () { if (commit()) { closeSheet(); } };
+  $("okNext").onclick = function () {
+    var cur = sel;
+    if (!commit()) return;
+    var i = DIAS.indexOf(cur) + 1;
+    if (i < DIAS.length) openSheet(DIAS[i]); else closeSheet();
+  };
+  $("sheetClose").onclick = closeSheet;
+  $("dec").onclick = function () { step(-1); $("cnt").focus(); };
+  $("inc").onclick = function () { step(1); $("cnt").focus(); };
+  $("cnt").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); $("ok").onclick(); }
+  });
+  $("cnt").addEventListener("input", function () {
+    this.value = this.value.replace(/[^0-9０-９]/g, "");
+  });
+
+  $("custom").addEventListener("input", function () {
+    S.custom = this.value; $("warn").textContent = "";
+    closeSheet();
+    save(); renderGrid();
+  });
+
+  $("clearLen").onclick = function () {
+    var key = curKey();
+    if (key && S.counts[key] && confirm(key + "m の登録をすべて消しますか？")) {
+      delete S.counts[key]; closeSheet(); save(); renderGrid(); renderSummary();
+    }
+  };
+  $("clearAll").onclick = function () {
+    if (Object.keys(S.counts).length && confirm("登録した丸太をすべて消しますか？")) {
+      S.counts = {}; closeSheet(); save(); renderGrid(); renderSummary();
+    }
+  };
+  $("copy").onclick = function () {
+    var gs = groups();
+    var lines = ["丸太材積"];
+    var tn = 0, tv = 0;
+    gs.forEach(function (g) {
+      tn += g.n; tv += g.v;
+      lines.push("【" + g.key + "m】" + g.n + "本 " + fmt(g.v) + "㎥");
+      g.rows.forEach(function (r) { lines.push(r.d + "cm " + r.n + "本"); });
+    });
+    lines.push("合計 " + tn + "本 " + fmt(tv) + "㎥");
+    var t = lines.join("\n");
+    function done(ok) {
+      $("copy").textContent = ok ? "コピーしました" : "コピーできません";
+      setTimeout(function () { $("copy").textContent = "結果をコピー"; }, 1500);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(function () { done(true); }, function () { done(false); });
+    } else { done(false); }
+  };
+
+  load();
+  renderTabs(); renderGrid(); renderSummary();
+})();
+
+// オフライン対応（Service Worker）。https のページでだけ動く
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  });
+}
+</script>
+</body>
+</html>
