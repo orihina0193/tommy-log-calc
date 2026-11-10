@@ -132,8 +132,13 @@
 </div>
 
 <div class="card">
+  <label for="roundMode">1本ごとの材積の端数（小数第4位）</label>
+  <select id="roundMode">
+    <option value="round">四捨五入（例 0.1296 → 0.130）</option>
+    <option value="floor">切り捨て（例 0.1296 → 0.129）</option>
+  </select>
   <p class="note">
-    1本ごとに小数第3位で切り捨て（例 0.1296 → 0.129）してから、本数をかけて合計します。<br><br>
+    1本ごとに小数第3位までに丸めてから、本数をかけて合計します。<br><br>
     計算式（末口二乗法）<br>
     ・長さ 6m 未満：末口径² × 長さ ÷ 10000<br>
     ・長さ 6m 以上：(末口径 + (長さの整数部分 − 4) ÷ 2)² × 長さ ÷ 10000<br>
@@ -160,7 +165,7 @@
   var DIAS = [];
   for (var d = 18; d <= 60; d += 2) DIAS.push(d);
   var TABS = [["2", "2m"], ["2.2", "2.2m"], ["4", "4m"], ["other", "その他"]];
-  var S = { ver: 2, counts: {}, tab: "4", custom: "" };
+  var S = { ver: 2, counts: {}, tab: "4", custom: "", round: "round" };
   var sel = null;
   var $ = function (id) { return document.getElementById(id); };
 
@@ -170,6 +175,7 @@
       if (s.counts && typeof s.counts === "object") S.counts = s.counts;
       if (s.tab) S.tab = s.tab;
       if (typeof s.custom === "string") S.custom = s.custom;
+      if (s.round === "floor" || s.round === "round") S.round = s.round;
     } catch (e) {}
   }
   function save() {
@@ -193,7 +199,8 @@
   function volume(d, l) {
     var base = l < 6 ? d : d + (Math.floor(l) - 4) / 2;
     var v = base * base * l / 10000;
-    return Math.floor(v * 1000 + 1e-9) / 1000;
+    if (S.round === "floor") return Math.floor(v * 1000 + 1e-9) / 1000;
+    return Math.round(v * 1000 + 1e-9) / 1000;
   }
   function fmt(n) { return n.toFixed(3); }
 
@@ -382,7 +389,10 @@
     } else { done(false); }
   };
 
+  $("roundMode").onchange = function () { S.round = this.value; save(); renderSummary(); };
+
   load();
+  $("roundMode").value = S.round;
   renderTabs(); renderGrid(); renderSummary();
 })();
 
