@@ -1,6 +1,6 @@
 // 丸太材積計算 オフライン用 Service Worker
 // index.html などを大きく変えたときは、下の CACHE の番号を上げると、端末の古い保存分が入れ替わります。
-var CACHE = "log-volume-calc-v1";
+var CACHE = "log-volume-calc-v2";
 var FILES = [
   "./",
   "./index.html",
